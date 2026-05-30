@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, patch
+from typing import Any
 
 from src.core.client import WildberriesApiClient
 from src.limiter.token_bucket import TokenBucketLimiter
