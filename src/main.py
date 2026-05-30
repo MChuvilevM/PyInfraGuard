@@ -96,7 +96,5 @@ if __name__ == "__main__":
     try:
         asyncio.run(container.run())
     except Exception as fatal_err:
-        logger.critical(
-            f"Fatal application startup failure: {fatal_err!s}", exc_info=True
-        )
+        logger.critical(f"Fatal application startup failure: {fatal_err!s}", exc_info=True)
         sys.exit(1)
