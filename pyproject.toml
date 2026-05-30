@@ -5,30 +5,11 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = [
-    "E",    # pycodestyle errors
-    "W",    # pycodestyle warnings
-    "F",    # pyflakes
-    "I",    # isort
-    "C90",  # mccabe complexity
-    "N",    # pep8-naming
-    "UP",   # pyupgrade
-    "ASYNC",# flake8-async
-    "B",    # flake8-bugbear
-    "A",    # flake8-builtins
-    "C4",   # flake8-comprehensions
-    "DTZ",  # flake8-datetimez
-    "T10",  # flake8-debugger
-    "T20",  # flake8-print
-    "Q",    # flake8-quotes
-    "SIM",  # flake8-simplify
-    "PTH",  # flake8-use-pathlib
-    "ERA",  # eradicate (commented out code)
-    "RUF",  # Ruff-specific rules
+    "E", "W", "F", "I", "C90", "N", "UP", "ASYNC", "B", 
+    "A", "C4", "DTZ", "T10", "T20", "Q", "SIM", "PTH", "ERA", "RUF"
 ]
 ignore = [
-    "D",     # missing docstrings
-    "ANN101",# missing type annotation for self
-    "ANN102",# missing type annotation for cls
+    "D", 
 ]
 
 [tool.ruff.lint.mccabe]
