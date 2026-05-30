@@ -15,9 +15,7 @@ logging.basicConfig(
     format="%(asctime)s - [%(levelname)s] - %(name)s - %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)],
 )
-
 logger = logging.getLogger("PyInfraGuard.Main")
-
 
 class ApplicationContainer:
     """Orchestrates runtime lifecycle and dependencies of the monitoring service."""
@@ -32,8 +30,7 @@ class ApplicationContainer:
             token="YOUR_MOCK_TOKEN_HERE",
             limiter=self.limiter,
         )
-
-        # Monitor specific item numbers (mock list)
+ # Monitor specific item numbers (mock list)
         self.scheduler = PricePollingScheduler(
             api_client=self.api_client,
             nm_ids=[123456, 789012],
@@ -44,21 +41,17 @@ class ApplicationContainer:
     async def run(self) -> None:
         """Launch all background process subsystems and await termination signal."""
         logger.info("Initializing PyInfraGuard core systems...")
-
-        # Start Prometheus exporter HTTP engine
+# Start Prometheus exporter HTTP engine
         self.metrics_server.start()
-
-        # Start periodic data loop
+# Start periodic data loop
         await self.scheduler.start()
 
         logger.info("Service infrastructure fully deployed. Entering operational loop.")
-
-        # Setup POSIX signal handlers for graceful shutdown
+# Setup POSIX signal handlers for graceful shutdown
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
             loop.add_signal_handler(sig, lambda: self._stop_event.set())
-
-        # Keep running until signal event triggers
+# Keep running until signal event triggers
         await self._stop_event.wait()
         await self._shutdown()
 
