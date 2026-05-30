@@ -14,15 +14,17 @@ async def test_fetch_prices_retry_on_429() -> None:
 
     mock_session = AsyncMock()
 
-    async def mock_context_manager(status: int, json_data: dict | None = None) -> AsyncMock:
-        mock_resp = AsyncMock()
-        mock_resp.status = status
-        mock_resp.json = AsyncMock(return_value=json_data or {})
-        mock_resp.__aenter__.return_value = mock_resp
-        return mock_resp
+    # Настраиваем поведение контекстного менеджера
+    async def mock_response_with_status(status: int, json_data: dict | None = None):
+        resp = AsyncMock()
+        resp.status = status
+        resp.json = AsyncMock(return_value=json_data or {})
+        # Это ключевая строка: заставляет работать async with
+        resp.__aenter__.return_value = resp
+        return resp
 
-    mock_resp_429 = await mock_context_manager(429)
-    mock_resp_200 = await mock_context_manager(200, {"data": {"products": []}})
+    mock_resp_429 = await mock_response_with_status(429)
+    mock_resp_200 = await mock_response_with_status(200, {"data": {"products": []}})
 
     mock_session.get.side_effect = [mock_resp_429, mock_resp_200]
 
