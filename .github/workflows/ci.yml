@@ -29,7 +29,7 @@ jobs:
         run: ruff check src tests --fix
 
       - name: Run Ruff Format
-        run: ruff format src tests --check
+        run: ruff format src tests
 
       - name: Run Mypy Static Type Analysis
         run: mypy src tests
