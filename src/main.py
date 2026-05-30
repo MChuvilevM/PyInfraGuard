@@ -48,18 +48,21 @@ class ApplicationContainer:
         # Start Prometheus exporter HTTP engine
         self.metrics_server.start()
 
-        # Start periodic data loop
-        await self.scheduler.start()
+        # Start periodic data loop as a task to prevent blocking
+        scheduler_task = asyncio.create_task(self.scheduler.start())
 
         logger.info("Service infrastructure fully deployed. Entering operational loop.")
 
         # Setup POSIX signal handlers for graceful shutdown
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, lambda: self._stop_event.set())
+            loop.add_signal_handler(sig, self._stop_event.set)
 
         # Keep running until signal event triggers
         await self._stop_event.wait()
+        
+        # Shutdown sequence
+        scheduler_task.cancel()
         await self._shutdown()
 
     async def _shutdown(self) -> None:
