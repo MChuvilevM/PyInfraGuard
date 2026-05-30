@@ -46,6 +46,6 @@ class MetricsManager:
         WB_LIMITER_TOKENS.set(tokens)
 
     @staticmethod
-    def measure_latency(method: str) -> Histogram._UpperBoundedContextManager:
+    def measure_latency(method: str):
         """Context manager to measure execution latency of API calls."""
         return WB_REQUEST_LATENCY_SECONDS.labels(method=method).time()
