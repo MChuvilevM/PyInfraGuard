@@ -1,3 +1,4 @@
+from typing import Any
 from prometheus_client import Counter, Gauge, Histogram
 
 
@@ -46,6 +47,6 @@ class MetricsManager:
         WB_LIMITER_TOKENS.set(tokens)
 
     @staticmethod
-    def measure_latency(method: str):
+    def measure_latency(method: str) -> Any:
         """Context manager to measure execution latency of API calls."""
         return WB_REQUEST_LATENCY_SECONDS.labels(method=method).time()
