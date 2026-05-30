@@ -1,17 +1,13 @@
 import logging
-from typing import Any
-
 from aiohttp import ClientSession, ClientTimeout
-
 from src.core.schemas import WBApiResponse
 from src.limiter.token_bucket import TokenBucketLimiter
-
 
 logger = logging.getLogger("PyInfraGuard.CoreClient")
 
 
 class WildberriesApiClient:
-    """Асинхронный отказоустойчивый клиент для работы с API Wildberries."""
+    """Асинхронный отказоустойчивый клиент для работы с API маркетплейса."""
 
     def __init__(self, base_url: str, token: str, limiter: TokenBucketLimiter) -> None:
         """Инициализация клиента.
@@ -31,7 +27,7 @@ class WildberriesApiClient:
         self._timeout = ClientTimeout(total=15.0, connect=5.0)
 
     async def fetch_prices(self, session: ClientSession, nm_ids: list[int]) -> WBApiResponse:
-        """Запрашивает данные о ценах товаров по их артикулам (nmId).
+        """Запрашивает данные о ценах товаров по их артикулам.
 
         Метод гарантированно ожидает разрешения от Rate Limiter перед отправкой.
 
