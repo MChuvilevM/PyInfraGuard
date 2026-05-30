@@ -1,11 +1,12 @@
+import asyncio
 import logging
+from typing import Any
 
 from aiohttp import ClientSession, ClientTimeout
 
 from src.core.schemas import WBApiResponse
 from src.limiter.token_bucket import TokenBucketLimiter
 from src.metrics.exporter import MetricsManager
-
 
 logger = logging.getLogger("PyInfraGuard.CoreClient")
 
@@ -25,31 +26,35 @@ class WildberriesApiClient:
         self._timeout = ClientTimeout(total=15.0, connect=5.0)
 
     async def fetch_prices(self, session: ClientSession, nm_ids: list[int]) -> WBApiResponse:
-        """Fetch product price data by marketplace article IDs with precise metric tracking.
-
-        This method acquires tokens from the rate limiter before executing the request.
-        """
+        """Fetch product price data by marketplace article IDs with retry logic."""
         url = f"{self._base_url}/api/v1/prices"
         params = {"nmIds": ",".join(map(str, nm_ids))}
 
         await self._limiter.acquire(tokens=1)
 
-        with MetricsManager.measure_latency(method="fetch_prices"):
-            try:
-                async with session.get(url, headers=self._headers, params=params, timeout=self._timeout) as response:
-                    MetricsManager.track_request(method="fetch_prices", status_code=response.status)
+        for attempt in range(3):
+            with MetricsManager.measure_latency(method="fetch_prices"):
+                try:
+                    async with session.get(
+                        url, headers=self._headers, params=params, timeout=self._timeout
+                    ) as response:
+                        MetricsManager.track_request(method="fetch_prices", status_code=response.status)
 
-                    if response.status == 429:
-                        logger.error("Critical error: Rate limit exceeded (HTTP 429) despite rate limiter.")
-                        MetricsManager.track_error(component="api_client_429")
+                        if response.status == 429:
+                            wait = 2**attempt
+                            logger.warning("Rate limit hit. Retry %d/3 in %ds", attempt + 1, wait)
+                            await asyncio.sleep(wait)
+                            continue
+
                         response.raise_for_status()
+                        response_json = await response.json()
+                        return WBApiResponse.model_validate(response_json)
 
-                    response.raise_for_status()
-                    response_json = await response.json()
+                except Exception as err:
+                    if attempt == 2:
+                        logger.error("Final failure after 3 attempts: %s", err, exc_info=True)
+                        MetricsManager.track_error(component="api_client_exception")
+                        raise
+                    await asyncio.sleep(1)
 
-                    return WBApiResponse.model_validate(response_json)
-
-            except Exception as err:
-                logger.error(f"Failed to fetch prices from WB API: {err!s}", exc_info=True)
-                MetricsManager.track_error(component="api_client_exception")
-                raise
+        raise RuntimeError("Unreachable code in fetch_prices")
