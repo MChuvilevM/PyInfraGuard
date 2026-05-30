@@ -1,12 +1,12 @@
 import asyncio
 import logging
-from typing import Any
 
 from aiohttp import ClientSession, ClientTimeout
 
 from src.core.schemas import WBApiResponse
 from src.limiter.token_bucket import TokenBucketLimiter
 from src.metrics.exporter import MetricsManager
+
 
 logger = logging.getLogger("PyInfraGuard.CoreClient")
 
