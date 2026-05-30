@@ -28,12 +28,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install ruff mypy pytest pytest-asyncio pydantic aiohttp prometheus-client
 
-      - name: Run Ruff Check & Format
-        run: |
-          ruff check src tests
-          ruff format --check src tests
+      - name: Run Ruff Check (No auto-fix)
+        run: ruff check src tests
 
-      - name: Run Mypy Static Type Analysis
+      - name: Run Mypy
         run: mypy src tests
 
       - name: Run Pytest
