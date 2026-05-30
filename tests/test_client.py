@@ -11,8 +11,10 @@ async def test_fetch_prices_retry_on_429() -> None:
         base_url="https://test.api", token="fake", limiter=limiter
     )
 
+    # Настройка мока для сессии
     mock_session = AsyncMock()
 
+    # Настройка мока ответа (429 -> 200)
     mock_response = AsyncMock()
     mock_response.status = 429
     mock_response.__aenter__.return_value = mock_response
@@ -24,6 +26,7 @@ async def test_fetch_prices_retry_on_429() -> None:
 
     mock_session.get.side_effect = [mock_response, mock_success]
 
+    # Выполнение теста
     with patch("asyncio.sleep", new_callable=AsyncMock):
         result = await client.fetch_prices(mock_session, [123])
 
