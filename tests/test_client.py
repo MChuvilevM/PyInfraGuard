@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from src.core.client import WildberriesApiClient
 from src.limiter.token_bucket import TokenBucketLimiter
@@ -8,9 +9,7 @@ from src.limiter.token_bucket import TokenBucketLimiter
 @pytest.mark.asyncio
 async def test_fetch_prices_retry_on_429() -> None:
     limiter = TokenBucketLimiter(capacity=10, refill_rate=1)
-    client = WildberriesApiClient(
-        base_url="https://test.api", token="fake", limiter=limiter
-    )
+    client = WildberriesApiClient(base_url="https://test.api", token="fake", limiter=limiter)
 
     mock_session = AsyncMock()
 
