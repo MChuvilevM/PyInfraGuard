@@ -19,7 +19,7 @@ class TokenBucketLimiter:
         self._tokens = capacity
         self._last_refill = time.monotonic()
         self._lock = asyncio.Lock()
-        
+
         # Initial metric export
         MetricsManager.update_limiter_tokens(self._tokens)
 
@@ -31,7 +31,7 @@ class TokenBucketLimiter:
         now = time.monotonic()
         elapsed = now - self._last_refill
         self._last_refill = now
-        
+
         if elapsed > 0:
             self._tokens = min(self._capacity, self._tokens + elapsed * self._refill_rate)
             MetricsManager.update_limiter_tokens(self._tokens)
@@ -42,8 +42,8 @@ class TokenBucketLimiter:
             MetricsManager.track_error(component="limiter")
             raise ValueError(f"Requested tokens ({tokens}) exceed bucket capacity ({self._capacity})")
 
-        async with self._lock:
-            while True:
+        while True:
+            async with self._lock:
                 self._refill()
                 if self._tokens >= tokens:
                     self._tokens -= tokens
@@ -53,10 +53,6 @@ class TokenBucketLimiter:
                 # Calculate wait time based on missing tokens
                 needed_tokens = tokens - self._tokens
                 wait_time = needed_tokens / self._refill_rate
-                
-                # Release lock while sleeping to allow concurrent execution
-                self._lock.release()
-                try:
-                    await asyncio.sleep(wait_time)
-                finally:
-                    await self._lock.acquire()
+
+            # Ожидаем вне контекстного менеджера, чтобы не блокировать другие потоки
+            await asyncio.sleep(wait_time)
