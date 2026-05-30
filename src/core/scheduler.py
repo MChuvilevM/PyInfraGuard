@@ -70,7 +70,7 @@ class PricePollingScheduler:
 
                 try:
                     response = await self._api_client.fetch_prices(session, self._nm_ids)
-                    logger.info(f"Successfully synchronized data for {len(response.data.list)} items.")
+                    logger.info(f"Successfully synchronized data for {len(response.data.products)} items.")
                 except Exception as err:
                     logger.error(f"Execution cycle execution failure: {err!s}", exc_info=True)
                     MetricsManager.track_error(component="scheduler_cycle")
