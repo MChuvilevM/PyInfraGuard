@@ -1,51 +1,62 @@
 import asyncio
 import time
 
+from src.metrics.exporter import MetricsManager
+
 
 class TokenBucketLimiter:
-    """Потокобезопасный асинхронный Rate Limiter на основе алгоритма Token Bucket."""
+    """Thread-safe async Token Bucket rate limiter with Prometheus metrics integration."""
 
-    def __init__(self, capacity: int, refill_rate: float) -> None:
-        """Инициализация лимитера.
+    def __init__(self, capacity: float, refill_rate: float) -> None:
+        """Initialize the rate limiter.
 
         Args:
-            capacity: Максимальное количество токенов в корзине (максимальный всплеск запросов).
-            refill_rate: Скорость восполнения токенов (количество токенов в секунду).
+            capacity: Maximum number of tokens the bucket can hold.
+            refill_rate: Number of tokens added to the bucket per second.
         """
         self._capacity = capacity
         self._refill_rate = refill_rate
-        self._tokens = float(capacity)
+        self._tokens = capacity
         self._last_refill = time.monotonic()
         self._lock = asyncio.Lock()
+        
+        # Initial metric export
+        MetricsManager.update_limiter_tokens(self._tokens)
 
     def _refill(self) -> None:
-        """Внутренний метод для пересчета токенов на основе прошедшего времени."""
+        """Refill the bucket with tokens based on elapsed time.
+
+        Must be called under lock.
+        """
         now = time.monotonic()
         elapsed = now - self._last_refill
+        self._last_refill = now
+        
         if elapsed > 0:
-            self._tokens = min(float(self._capacity), self._tokens + elapsed * self._refill_rate)
-            self._last_refill = now
+            self._tokens = min(self._capacity, self._tokens + elapsed * self._refill_rate)
+            MetricsManager.update_limiter_tokens(self._tokens)
 
-    async def acquire(self, tokens: int = 1) -> None:
-        """Запрашивает указанное количество токенов.
-
-        Если токенов недостаточно, приостанавливает выполнение (co-routine)
-        до тех пор, пока корзина не накопит нужное количество.
-
-        Args:
-            tokens: Количество запрашиваемых токенов для операции.
-        """
+    async def acquire(self, tokens: float = 1.0) -> None:
+        """Acquire the specified number of tokens. Blocks until tokens are available."""
         if tokens > self._capacity:
-            raise ValueError(f"Запрошено токенов ({tokens}) больше, чем максимальная емкость ({self._capacity})")
+            MetricsManager.track_error(component="limiter")
+            raise ValueError(f"Requested tokens ({tokens}) exceed bucket capacity ({self._capacity})")
 
         async with self._lock:
             while True:
                 self._refill()
                 if self._tokens >= tokens:
                     self._tokens -= tokens
+                    MetricsManager.update_limiter_tokens(self._tokens)
                     return
 
-                # Вычисляем время ожидания до появления нужного количества токенов
+                # Calculate wait time based on missing tokens
                 needed_tokens = tokens - self._tokens
                 wait_time = needed_tokens / self._refill_rate
-                await asyncio.sleep(wait_time)
+                
+                # Release lock while sleeping to allow concurrent execution
+                self._lock.release()
+                try:
+                    await asyncio.sleep(wait_time)
+                finally:
+                    await self._lock.acquire()
