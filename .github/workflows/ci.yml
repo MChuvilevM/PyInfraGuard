@@ -32,14 +32,21 @@ jobs:
 
       - name: Run Ruff Check & Format
         run: |
-          ruff check --fix src tests
+          ruff check src tests --fix
           ruff format src tests
 
       - name: Commit changes
+        id: auto-commit
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: auto-fix linting and formatting issues"
           file_pattern: "*.py"
+
+      - name: Stop if changes were committed
+        if: steps.auto-commit.outputs.changes_detected == 'true'
+        run: |
+          echo "Changes detected and committed. Exiting to trigger new CI run."
+          exit 0
 
       - name: Run Mypy Static Type Analysis
         run: mypy src tests
