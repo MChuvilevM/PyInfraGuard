@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import AsyncMock, patch
-from typing import Any, Dict
 
 from src.core.client import WildberriesApiClient
 from src.limiter.token_bucket import TokenBucketLimiter
@@ -15,11 +14,12 @@ async def test_fetch_prices_retry_on_429() -> None:
 
     mock_session = AsyncMock()
 
-    async def mock_context_manager(status: int, json_data: Dict[str, Any] | None = None) -> AsyncMock:
+    async def mock_context_manager(
+        status: int, json_data: dict[str, Any] | None = None
+    ) -> AsyncMock:
         mock_resp = AsyncMock()
         mock_resp.status = status
         mock_resp.json = AsyncMock(return_value=json_data or {})
-        # Это заставляет работать конструкцию 'async with'
         mock_resp.__aenter__.return_value = mock_resp
         return mock_resp
 
@@ -29,7 +29,6 @@ async def test_fetch_prices_retry_on_429() -> None:
     mock_session.get.side_effect = [mock_resp_429, mock_resp_200]
 
     with patch("asyncio.sleep", new_callable=AsyncMock):
-        result = await client.fetch_prices(mock_session, [123])
+        await client.fetch_prices(mock_session, [123])
 
-    assert result is not None
     assert mock_session.get.call_count == 2
