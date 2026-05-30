@@ -2,7 +2,7 @@ import asyncio
 import logging
 import signal
 import sys
-from types import FrameType
+from types import TracebackType
 
 from src.core.client import WildberriesApiClient
 from src.core.scheduler import PricePollingScheduler
@@ -76,7 +76,7 @@ class ApplicationContainer:
 def handle_unhandled_exception(
     exc_type: type[BaseException],
     exc_value: BaseException,
-    exc_traceback: FrameType | None,
+    exc_traceback: TracebackType | None,
 ) -> None:
     """Global hook to log critical errors that escaped standard try-except blocks."""
     if issubclass(exc_type, KeyboardInterrupt):
@@ -90,7 +90,7 @@ def handle_unhandled_exception(
 
 if __name__ == "__main__":
     # Redirect global uncaught exceptions to logger
-    sys.excepthook = handle_unhandled_exception  # type: ignore[assignment]
+    sys.excepthook = handle_unhandled_exception
 
     container = ApplicationContainer()
     try:
