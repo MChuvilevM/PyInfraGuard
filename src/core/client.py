@@ -32,10 +32,8 @@ class WildberriesApiClient:
         url = f"{self._base_url}/api/v1/prices"
         params = {"nmIds": ",".join(map(str, nm_ids))}
 
-        # Rate limiting block
         await self._limiter.acquire(tokens=1)
 
-        # Measure request execution latency and track response codes
         with MetricsManager.measure_latency(method="fetch_prices"):
             try:
                 async with session.get(url, headers=self._headers, params=params, timeout=self._timeout) as response:
@@ -49,7 +47,6 @@ class WildberriesApiClient:
                     response.raise_for_status()
                     response_json = await response.json()
 
-                    # Strict validation via Pydantic schema
                     return WBApiResponse.model_validate(response_json)
 
             except Exception as err:
