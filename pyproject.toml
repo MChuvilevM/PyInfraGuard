@@ -1,38 +1,65 @@
-name: CI
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src", "tests"]
 
-on:
-  push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "C90",  # mccabe complexity
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "ASYNC",# flake8-async
+    "B",    # flake8-bugbear
+    "A",    # flake8-builtins
+    "C4",   # flake8-comprehensions
+    "DTZ",  # flake8-datetimez
+    "T10",  # flake8-debugger
+    "T20",  # flake8-print
+    "Q",    # flake8-quotes
+    "SIM",  # flake8-simplify
+    "PTH",  # flake8-use-pathlib
+    "ERA",  # eradicate (commented out code)
+    "RUF",  # Ruff-specific rules
+]
+ignore = [
+    "D",     # missing docstrings
+    "ANN101",# missing type annotation for self
+    "ANN102",# missing type annotation for cls
+]
 
-jobs:
-  lint-and-test:
-    runs-on: ubuntu-latest
+[tool.ruff.lint.mccabe]
+max-complexity = 10
 
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+force-single-line = false
+lines-after-imports = 2
 
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
-        cache: "pip"
+[tool.mypy]
+python_version = "3.11"
+files = ["src", "tests"]
+strict = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+implicit_reexport = false
+strict_equality = true
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install ruff mypy pytest pytest-asyncio pydantic aiohttp aiogram prometheus-client
+[[tool.mypy.overrides]]
+module = [
+    "aiogram.*",
+    "prometheus_client.*"
+]
+ignore_missing_imports = true
 
-    - name: Run Ruff Check
-      run: ruff check src tests
-
-    - name: Run Ruff Format Check
-      run: ruff format --check src tests
-
-    - name: Run Mypy Static Type Analysis
-      run: mypy
-
-    - name: Run Pytest
-      run: pytest
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-vv --strict-markers --tb=short"
