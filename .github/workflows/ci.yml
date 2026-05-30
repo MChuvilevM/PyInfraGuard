@@ -28,26 +28,22 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ruff mypy pytest pytest-asyncio pydantic aiohttp aiogram prometheus-client
+          pip install ruff mypy pytest pytest-asyncio pydantic aiohttp prometheus-client
 
-      - name: Run Ruff Check & Format
+      # 1. Сначала исправляем всё, что можно исправить автоматически
+      - name: Auto-fix formatting
         run: |
           ruff check src tests --fix
           ruff format src tests
 
-      - name: Commit changes
-        id: auto-commit
+      # 2. Коммитим исправления, если они есть
+      - name: Commit auto-fixes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: auto-fix linting and formatting issues"
           file_pattern: "*.py"
 
-      - name: Stop if changes were committed
-        if: steps.auto-commit.outputs.changes_detected == 'true'
-        run: |
-          echo "Changes detected and committed. Exiting to trigger new CI run."
-          exit 0
-
+      # 3. После авто-фикса запускаем статический анализ и тесты
       - name: Run Mypy Static Type Analysis
         run: mypy src tests
 
