@@ -19,7 +19,7 @@ async def test_fetch_prices_retry_on_429() -> None:
         mock_resp = AsyncMock()
         mock_resp.status = status
         mock_resp.json = AsyncMock(return_value=json_data or {})
-        # This is the fix for the TypeError
+        # Это заставляет работать конструкцию 'async with'
         mock_resp.__aenter__.return_value = mock_resp
         return mock_resp
 
