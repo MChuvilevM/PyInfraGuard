@@ -9,6 +9,7 @@ from src.core.scheduler import PricePollingScheduler
 from src.limiter.token_bucket import TokenBucketLimiter
 from src.metrics.server import MetricsServerManager
 
+
 # Base logging configuration
 logging.basicConfig(
     level=logging.INFO,
