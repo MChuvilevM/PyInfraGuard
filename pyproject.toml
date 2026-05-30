@@ -5,7 +5,7 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "C90", "N", "UP", "ASYNC", "B", "A", "C4", "DTZ", "T10", "T20", "Q", "SIM", "PTH", "ERA", "RUF"]
-ignore = ["D"]
+ignore = []
 
 [tool.ruff.format]
 quote-style = "double"
