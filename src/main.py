@@ -60,7 +60,7 @@ class ApplicationContainer:
 
         # Keep running until signal event triggers
         await self._stop_event.wait()
-        
+
         # Shutdown sequence
         scheduler_task.cancel()
         await self._shutdown()
