@@ -1,22 +1,19 @@
 import logging
+
 from aiohttp import ClientSession, ClientTimeout
+
 from src.core.schemas import WBApiResponse
 from src.limiter.token_bucket import TokenBucketLimiter
+
 
 logger = logging.getLogger("PyInfraGuard.CoreClient")
 
 
 class WildberriesApiClient:
-    """Асинхронный отказоустойчивый клиент для работы с API маркетплейса."""
+    """Asynchronous robust HTTP client for Wildberries API integration."""
 
     def __init__(self, base_url: str, token: str, limiter: TokenBucketLimiter) -> None:
-        """Инициализация клиента.
-
-        Args:
-            base_url: Базовый URL API маркетплейса.
-            token: Авторизационный токен (API-ключ).
-            limiter: Экземпляр TokenBucketLimiter для контроля частоты запросов.
-        """
+        """Initialize the API client with required credentials and rate limiter."""
         self._base_url = base_url.rstrip("/")
         self._headers = {
             "Authorization": token,
@@ -27,35 +24,28 @@ class WildberriesApiClient:
         self._timeout = ClientTimeout(total=15.0, connect=5.0)
 
     async def fetch_prices(self, session: ClientSession, nm_ids: list[int]) -> WBApiResponse:
-        """Запрашивает данные о ценах товаров по их артикулам.
+        """Fetch product price data by marketplace article IDs.
 
-        Метод гарантированно ожидает разрешения от Rate Limiter перед отправкой.
-
-        Args:
-            session: Текущая сессия aiohttp.
-            nm_ids: Список артикулов для проверки.
-
-        Returns:
-            Валидированный объект WBApiResponse.
+        This method acquires tokens from the rate limiter before executing the request.
         """
         url = f"{self._base_url}/api/v1/prices"
         params = {"nmIds": ",".join(map(str, nm_ids))}
 
-        # Жесткое ограничение частоты перед сетевым вызовом
+        # Rate limiting block
         await self._limiter.acquire(tokens=1)
 
         try:
             async with session.get(url, headers=self._headers, params=params, timeout=self._timeout) as response:
                 if response.status == 429:
-                    logger.error("Критическая ошибка: Превышен лимит запросов (HTTP 429), несмотря на лимитер.")
+                    logger.error("Critical error: Rate limit exceeded (HTTP 429) despite rate limiter.")
                     response.raise_for_status()
 
                 response.raise_for_status()
                 response_json = await response.json()
 
-                # Жесткая валидация схемы данных через Pydantic
+                # Strict validation via Pydantic schema
                 return WBApiResponse.model_validate(response_json)
 
         except Exception as err:
-            logger.error(f"Ошибка при выполнении запроса к WB API: {err!s}", exc_info=True)
+            logger.error(f"Failed to fetch prices from WB API: {err!s}", exc_info=True)
             raise
