@@ -83,7 +83,8 @@ def handle_unhandled_exception(
         sys.__excepthook__(exc_type, exc_value, exc_traceback)
         return
     logger.critical(
-        "Unhandled system exception encountered", exc_info=(exc_type, exc_value, exc_traceback)
+        "Unhandled system exception encountered",
+        exc_info=(exc_type, exc_value, exc_traceback),
     )
 
 
@@ -95,5 +96,7 @@ if __name__ == "__main__":
     try:
         asyncio.run(container.run())
     except Exception as fatal_err:
-        logger.critical(f"Fatal application startup failure: {fatal_err!s}", exc_info=True)
+        logger.critical(
+            f"Fatal application startup failure: {fatal_err!s}", exc_info=True
+        )
         sys.exit(1)
