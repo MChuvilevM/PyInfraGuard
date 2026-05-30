@@ -30,20 +30,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install ruff mypy pytest pytest-asyncio pydantic aiohttp prometheus-client
 
-      # 1. Сначала исправляем всё, что можно исправить автоматически
-      - name: Auto-fix formatting
+      - name: Run Ruff Check & Format
         run: |
           ruff check src tests --fix
           ruff format src tests
 
-      # 2. Коммитим исправления, если они есть
       - name: Commit auto-fixes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: auto-fix linting and formatting issues"
           file_pattern: "*.py"
 
-      # 3. После авто-фикса запускаем статический анализ и тесты
       - name: Run Mypy Static Type Analysis
         run: mypy src tests
 
