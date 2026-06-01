@@ -32,15 +32,14 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           sudo apt-get install -y jq
-          # Сохраняем diff во временный файл
           git diff HEAD^ HEAD > diff.txt
           
-          # Формируем JSON с помощью jq, он сам позаботится об экранировании
+          # Формируем JSON корректно
           jq -n --rawfile diff diff.txt \
             '{contents: [{parts: [{text: ("Ты строгий судья-разработчик. Проанализируй этот diff: " + $diff)}]}]}' \
             > request.json
 
-          # Отправляем файл
+          # Используем правильный путь для v1beta
           RESPONSE_CODE=$(curl -s -o response.json -w "%{http_code}" \
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GEMINI_API_KEY" \
             -H "Content-Type: application/json" \
