@@ -65,27 +65,48 @@ class ReviewerEngine:
             raise RuntimeError("AI service unavailable.")
 
     def handle_command(self, comment_body: str, issue_num: int) -> str:
-        """Парсинг команд типа /summarize, /explain."""
-        command = comment_body.strip().split()[0]
-        
-        if command == "/summarize":
-            return "Анализирую изменения... [Тут логика краткого резюме]"
-        elif command == "/explain":
-            return "Разбираю логику кода... [Тут логика объяснения]"
-        
-        return "Неизвестная команда. Доступны: /summarize, /explain."
+        """Парсинг команд с валидацией."""
+        if not comment_body:
+            return "Пустой комментарий."
+        try:
+            command = comment_body.strip().split()[0]
+            if command == "/summarize":
+                return "Анализирую изменения... [Тут логика краткого резюме]"
+            elif command == "/explain":
+                return "Разбираю логику кода... [Тут логика объяснения]"
+            return "Неизвестная команда. Доступны: /summarize, /explain."
+        except Exception:
+            logger.exception("Error parsing command")
+            return "Ошибка при обработке команды."
+
+    def _execute_review(self, issue_num: int) -> str:
+        """Выполняет ревью через LLM."""
+        history = self.get_history(issue_num)
+        return self.call_groq(history)
 
     def run(self, event_data: Dict[str, Any]) -> None:
-        # ... (предыдущий код проверки) ...
+        self._validate_logger()
+        logger.info(f"Event received. Keys: {list(event_data.keys())}")
+        
+        if event_data.get('sender', {}).get('login') == 'github-actions[bot]':
+            logger.info("Ignoring own activity.")
+            return
 
-        comment_body = event_data.get('comment', {}).get('body', '')
-        if comment_body.startswith('/'):
-            reply = self.handle_command(comment_body, issue_num)
+        issue_num = (event_data.get('issue', {}).get('number') or 
+                     event_data.get('pull_request', {}).get('number'))
+        
+        if not issue_num:
+            raise ValueError("No issue/PR number found in event data.")
+
+        comment = event_data.get('comment')
+        if comment and 'body' in comment:
+            comment_body = comment['body']
+            if comment_body.startswith('/'):
+                reply = self.handle_command(comment_body, issue_num)
+            else:
+                reply = self._execute_review(issue_num)
         else:
-            # Стандартное ревью
-            history = self.get_history(issue_num)
-            # ... (логика diff и вызова Groq) ...
-            reply = self.call_groq(history)
+            reply = self._execute_review(issue_num)
 
         self.repo.get_issue(number=issue_num).create_comment(reply)
         logger.info(f"Response successfully posted to issue #{issue_num}")
