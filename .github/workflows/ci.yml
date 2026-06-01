@@ -24,7 +24,7 @@ jobs:
             -d "{\"contents\": [{\"parts\": [{\"text\": \"Ты судья. Оцени diff: $DIFF\"}]}]}")
 
     
-          REVIEW=$(echo $RESPONSE | jq -r '.candidates[0].content.parts[0].text // "EMPTY_RESPONSE: " + .')
+          REVIEW=$(echo $RESPONSE | jq -r 'if .candidates then .candidates[0].content.parts[0].text else . | tostring end')
           
           curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
             -H "Content-Type: application/json" \
