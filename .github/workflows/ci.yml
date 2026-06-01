@@ -29,21 +29,24 @@ jobs:
         if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          # Получаем список измененных файлов и сам diff
+          sudo apt-get install -y jq
           DIFF=$(git diff HEAD^ HEAD)
           
-          # Отправляем в API и получаем комментарий
-          REVIEW=$(curl -s https://api.openai.com/v1/chat/completions \
-            -H "Authorization: Bearer $OPENAI_API_KEY" \
+          if [ -z "$DIFF" ]; then exit 0; fi
+
+          # Запрос к Gemini
+          RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GEMINI_API_KEY" \
             -H "Content-Type: application/json" \
             -d '{
-              "model": "gpt-4",
-              "messages": [{"role": "system", "content": "Ты строгий судья-разработчик. Проанализируй этот diff и напиши краткий, жесткий вердикт о качестве изменений."}, {"role": "user", "content": "'"$DIFF"'"}]
-            }' | jq -r '.choices[0].message.content')
-
-          # Отправляем комментарий к последнему коммиту
+              "contents": [{"parts": [{"text": "Ты строгий судья-разработчик. Проанализируй этот diff и дай жесткий вердикт: '"${DIFF//\"/\\\"}"'"}]}]
+            }')
+          
+          # Извлечение текста ответа
+          REVIEW=$(echo $RESPONSE | jq -r '.candidates[0].content.parts[0].text // "Ошибка при получении ответа от ИИ"')
+          
+          # Публикация комментария
           curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"body\": \"$REVIEW\"}" \
