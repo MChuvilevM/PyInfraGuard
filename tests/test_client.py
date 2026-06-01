@@ -16,11 +16,11 @@ async def test_fetch_prices_retry_on_429() -> None:
 
     mock_session = AsyncMock()
 
-    # Упрощенная логика контекстного менеджера
     def create_mock_resp(status: int, json_data: dict[str, Any]) -> AsyncMock:
         mock_resp = AsyncMock()
         mock_resp.status = status
         mock_resp.json.return_value = json_data
+        # Вот эта строка делает мок рабочим контекстным менеджером
         mock_resp.__aenter__.return_value = mock_resp
         return mock_resp
 
