@@ -24,7 +24,7 @@ jobs:
           # Формируем JSON через jq, чтобы избежать ошибок с символами
           PAYLOAD=$(jq -n \
             --arg diff "$DIFF" \
-            --arg prompt "Ты строгий судья. Оцени код кратко и по существу: " \
+            --arg prompt "Ты строгий судья и инженер. Проанализируй код. Если найдешь ошибки, напиши краткую критику и предложи исправленный вариант кода в блоке ```. Если ошибок нет — напиши 'Код чист'."
             '{model: "llama-3.3-70b-versatile", messages: [{role: "system", content: $prompt}, {role: "user", content: $diff}]}')
 
           RESPONSE=$(curl -s https://api.groq.com/openai/v1/chat/completions \
