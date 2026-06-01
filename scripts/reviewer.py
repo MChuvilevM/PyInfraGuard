@@ -63,16 +63,28 @@ class ReviewerEngine:
             logger.error(f"Groq API Error: {e}")
             raise RuntimeError("AI service unavailable.")
 
-    def run(self, event_data: Dict[str, Any]) -> None:
-        """Оркестратор логики обработки события."""
-        issue_num = event_data.get('issue', {}).get('number') or event_data.get('pull_request', {}).get('number')
+    def run(self, event_data: Dict[str, Any]):
+        # Логируем, что именно пришло
+        logger.info(f"Event received. Keys: {list(event_data.keys())}")
         
-        if not issue_num:
-            logger.info("No issue/PR number found.")
+        # Защита от ответов самому себе
+        if event_data.get('sender', {}).get('login') == 'github-actions[bot]':
+            logger.info("Ignoring own activity.")
             return
 
+        # Пытаемся найти номер issue/PR независимо от структуры события
+        issue_num = (event_data.get('issue', {}).get('number') or 
+                     event_data.get('pull_request', {}).get('number'))
+        
+        if not issue_num:
+            logger.warning("No issue/PR number found. Aborting.")
+            return
+
+        logger.info(f"Processing issue #{issue_num}")
+        
         history = self.get_history(issue_num)
         
+        # Если это PR, добавляем diff в контекст
         if 'pull_request' in event_data or event_data.get('issue', {}).get('pull_request'):
             diff = self.get_pr_diff(issue_num)
             if diff:
