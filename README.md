@@ -1,45 +1,48 @@
-# PyInfraGuard
+# 🛡️ PyInfraGuard
 
-Асинхронный отказоустойчивый демон на Python для высоконагруженного мониторинга API Wildberries. Решение обеспечивает точный контроль лимитов запросов, сбор метрик для Prometheus и мгновенное оповещение об инцидентах через Telegram.
+Асинхронный отказоустойчивый демон на Python для высоконагруженного мониторинга API Wildberries.
 
-![Python](https://img.shields.io/badge/python-3.11-blue.svg)
-![Code style](https://img.shields.io/badge/code%20style-ruff-black.svg)
-![Type checked](https://img.shields.io/badge/mypy-strict-blue.svg)
-![Tests](https://img.shields.io/badge/pytest-passing-brightgreen.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Python](https://img.shields.io/badge/python-3.11-blue.svg?style=flat-square)
+![Code style](https://img.shields.io/badge/code%20style-ruff-black.svg?style=flat-square)
+![Type checked](https://img.shields.io/badge/mypy-strict-blue.svg?style=flat-square)
+![Tests](https://img.shields.io/badge/pytest-passing-brightgreen.svg?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)
 
 ---
 
-## 🛠 Технологический стек
-* **Core:** Python 3.11+, `asyncio`, `aiohttp`
-* **Limiter:** Реализация алгоритма Token Bucket
-* **Monitoring:** Интеграция с `prometheus_client`
-* **Alerting:** `aiogram` для уведомлений
-* **Quality Control:** `ruff`, `mypy` (strict mode), `pytest`
+## 🏗️ Архитектура проекта
+
+Проект спроектирован как модульное приложение с разделением ответственности:
+
+* **`core/`** — асинхронный клиент для взаимодействия с API.
+* **`limiter/`** — реализация алгоритма Token Bucket для контроля лимитов.
+* **`alerts/`** — модуль мгновенных уведомлений (Telegram).
+* **`metrics/`** — экспортер метрик для Prometheus.
 
 ## 🚀 Основные возможности
-- **Rate Limiting:** Интеллектуальный контроль частоты запросов для избежания банов.
-- **Observability:** Полная поддержка экспорта метрик для Grafana/Prometheus.
-- **Reliability:** Асинхронные контекстные менеджеры и обработка исключений.
-- **Alerting:** Мгновенные уведомления в Telegram при критических сбоях или достижении пороговых значений.
 
-## 📦 Установка
+- **Smart Rate Limiting:** Защита от блокировок API через адаптивный контроль частоты запросов.
+- **Observability:** Полная поддержка Prometheus для мониторинга в реальном времени.
+- **Reliability:** Обработка ошибок с автоматическим переподключением и асинхронными контекстными менеджерами.
+- **Instant Alerting:** Моментальная реакция на сбои через Telegram-бота.
 
-1. Клонировать репозиторий:
+## ⚙️ Установка
+
+1. **Клонирование:**
    ```bash
    git clone [https://github.com/MChuvilevM/PyInfraGuard.git](https://github.com/MChuvilevM/PyInfraGuard.git)
    cd PyInfraGuard
 
-    Установить зависимости:
+    Установка зависимостей:
     Bash
 
     pip install -r requirements.txt
 
 🧪 Тестирование
 
-Проект полностью покрыт асинхронными тестами. Запуск через pytest:
+Проект покрыт асинхронными тестами с использованием unittest.mock. Запуск:
 Bash
 
 pytest
 
-Developed by MChuvilevM
+Developed by MChuvilevM | 2026
