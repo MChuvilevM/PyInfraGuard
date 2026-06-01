@@ -25,8 +25,25 @@ jobs:
         run: |
           ruff check . --fix
           
+      steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      # ... тут твои шаги с Python, Install dependencies и т.д. ...
+
+      # ЭТОТ БЛОК ВСТАВЬ СЮДА
+      - name: List Models
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          curl "https://generativelanguage.googleapis.com/v1/models?key=$GEMINI_API_KEY"
+
+      # AI Commit Review
       - name: AI Commit Review
         if: github.event_name == 'push'
+        # ... остальной код ...
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -41,7 +58,7 @@ jobs:
 
           # Используем правильный путь для v1beta
           RESPONSE_CODE=$(curl -s -o response.json -w "%{http_code}" \
-            "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=$GEMINI_API_KEY" \
+            ""https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=$GEMINI_API_KEY"" \
             -H "Content-Type: application/json" \
             -d @request.json)
 
