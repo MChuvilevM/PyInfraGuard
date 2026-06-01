@@ -22,8 +22,7 @@ jobs:
           
           PAYLOAD=$(jq -n \
             --arg diff "$DIFF" \
-            --arg prompt "Ты строгий судья. Твой анализ должен быть предельно сжатым: 1. Что не так. 2. Как исправить. Никаких вступлений, никакой воды. Только факты." \
-            '{model: "llama-3.3-70b-versatile", messages: [{role: "system", content: $prompt}, {role: "user", content: $diff}]}')
+            '{model: "llama-3.3-70b-versatile", messages: [{role: "system", content: "Ты — инженер. Анализируй код. Если есть ошибки — пиши кратко, что не так и как исправить. Если нет — 'Код чист'."}, {role: "user", content: $diff}]}')
 
           RESPONSE=$(curl -s https://api.groq.com/openai/v1/chat/completions \
             -H "Authorization: Bearer $GROQ_API_KEY" \
