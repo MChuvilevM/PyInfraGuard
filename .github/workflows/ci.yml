@@ -22,7 +22,8 @@ jobs:
           
           PAYLOAD=$(jq -n \
             --arg diff "$DIFF" \
-            '{model: "llama-3.3-70b-versatile", messages: [{role: "system", content: "Ты — инженер. Анализируй код. Если есть ошибки — пиши кратко, что не так и как исправить. Если нет — 'Код чист'."}, {role: "user", content: $diff}]}')
+            --arg sys "Ты — инженер. Анализируй код. Если есть ошибки — пиши кратко, что не так и как исправить. Если нет — Код чист." \
+            '{model: "llama-3.3-70b-versatile", messages: [{role: "system", content: $sys}, {role: "user", content: $diff}]}')
 
           RESPONSE=$(curl -s https://api.groq.com/openai/v1/chat/completions \
             -H "Authorization: Bearer $GROQ_API_KEY" \
