@@ -12,27 +12,26 @@ jobs:
           fetch-depth: 0
 
       - name: AI Commit Review
-        if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
-          set -x
           sudo apt-get install -y jq
           DIFF=$(git diff HEAD^ HEAD)
           
-          # Отправляем запрос и сохраняем вывод в файл
-          curl -s -o response.json "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GEMINI_API_KEY" \
+          RESPONSE=$(curl -s https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
             -H "Content-Type: application/json" \
-            -d "{\"contents\": [{\"parts\": [{\"text\": \"Ты судья. Оцени diff: $DIFF\"}]}]}"
+            -d "{
+              \"model\": \"llama3-70b-8192\",
+              \"messages\": [
+                {\"role\": \"system\", \"content\": \"Ты строгий судья. Оцени код кратко и по существу. Если есть ошибки — указывай прямо.\"},
+                {\"role\": \"user\", \"content\": \"Оцени diff: $DIFF\"}
+              ]
+            }")
 
-          # Выводим содержимое ответа в лог для отладки
-          cat response.json
-
-          # Извлекаем текст
-          REVIEW=$(jq -r 'if .candidates then .candidates[0].content.parts[0].text else . | tostring end' response.json)
+          REVIEW=$(echo $RESPONSE | jq -r '.choices[0].message.content // ("ERROR: " + (.error.message // "unknown"))')
           
-          # Отправляем коммент
           curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"body\": \"$REVIEW\"}" \
