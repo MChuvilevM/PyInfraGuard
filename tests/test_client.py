@@ -1,28 +1,31 @@
 import pytest
-from unittest.mock import patch, MagicMock
-
-# Создаем простую заглушку, которая не является корутиной
-class MockResponse:
-    def __init__(self, status, json_data):
-        self.status = status
-        self.json_data = json_data
-    
-    async def __aenter__(self):
-        return self
-    
-    async def __aexit__(self, exc_type, exc, tb):
-        pass
-        
-    async def json(self):
-        return self.json_data
+from unittest.mock import AsyncMock, MagicMock, patch
+from src.core.client import WildberriesApiClient
+from src.limiter.token_bucket import TokenBucketLimiter
 
 @pytest.mark.asyncio
-async def test_fetch_prices_retry_on_429(mocker) -> None:
-    # ... тут инициализация клиента ...
+async def test_fetch_prices_retry_on_429() -> None:
+    limiter = TokenBucketLimiter(capacity=10, refill_rate=1)
+    client = WildberriesApiClient("https://test.api", "fake", limiter)
+    
     mock_session = MagicMock()
-    # Возвращаем наш класс-заглушку, который гарантированно работает
+
+    # Создаем функцию-помощник для правильного мока контекстного менеджера
+    def create_response(status, json_data):
+        mock_resp = MagicMock()
+        mock_resp.status = status
+        mock_resp.json = AsyncMock(return_value=json_data)
+        # Это то, что делает класс контекстным менеджером
+        mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
+        mock_resp.__aexit__ = AsyncMock(return_value=None)
+        return mock_resp
+
     mock_session.get.side_effect = [
-        MockResponse(429, {}),
-        MockResponse(200, {"data": {"products": []}})
+        create_response(429, {}),
+        create_response(200, {"data": {"products": []}})
     ]
-    # ... вызов и ассерты ...
+
+    with patch("asyncio.sleep", new_callable=AsyncMock):
+        await client.fetch_prices(mock_session, [123])
+
+    assert mock_session.get.call_count == 2
