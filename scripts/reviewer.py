@@ -5,12 +5,13 @@ from typing import List, Dict, Any, Optional
 import httpx
 from github import Github, Repository
 
-# Константы
+# Константы (убрали "магические" строки)
 CMD_SUMMARIZE = "/summarize"
 CMD_EXPLAIN = "/explain"
 DIFF_CHAR_LIMIT = 10000
 SYSTEM_PROMPT = "Ты — строгий AI-инженер. Анализируй код, отвечай кратко, исправляй ошибки прямо."
 
+# Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,9 @@ class ReviewerEngine:
         self.repo = self.github.get_repo(repo_name)
 
     def _validate_logger(self) -> None:
+        """Проверка конфигурации логгера."""
         if not all(hasattr(logger, m) for m in ['info', 'warning', 'exception', 'error']):
+            logger.error("Logger configuration invalid.")
             raise RuntimeError("Logger configuration invalid.")
 
     def _handle_request(self, url: str, method: str = "GET", json_data: Optional[Dict] = None) -> Any:
@@ -30,7 +33,8 @@ class ReviewerEngine:
             return response.json()
 
     def get_pr_diff(self, pr_number: Optional[int]) -> str:
-        if not pr_number: return ""
+        if pr_number is None:
+            raise ValueError("PR number not provided.")
         try:
             pr = self.repo.get_pull(pr_number)
             response = httpx.get(pr.diff_url)
@@ -63,43 +67,54 @@ class ReviewerEngine:
             return "Ошибка связи с AI-сервисом."
 
     def handle_command(self, comment_body: str, issue_num: int) -> str:
-        if not comment_body: return "Пустой комментарий."
+        """Парсинг команд с детализированной обработкой ошибок."""
+        if not comment_body:
+            return "Пустой комментарий."
         try:
             parts = comment_body.strip().split()
-            command = parts[0] if parts else ""
-            if command == CMD_SUMMARIZE: return "Анализирую изменения... [Логика суммаризации]"
-            elif command == CMD_EXPLAIN: return "Разбираю логику кода... [Логика объяснения]"
+            if not parts:
+                return "Команда не распознана."
+            
+            command = parts[0]
+            if command == CMD_SUMMARIZE:
+                return "Анализирую изменения... [Логика суммаризации]"
+            elif command == CMD_EXPLAIN:
+                return "Разбираю логику кода... [Логика объяснения]"
             return f"Неизвестная команда. Доступны: {CMD_SUMMARIZE}, {CMD_EXPLAIN}."
-        except Exception as e:
-            logger.exception("Error in handle_command")
-            return f"Ошибка обработки: {e}"
+        except Exception:
+            logger.exception(f"Error parsing command: {comment_body}")
+            return "Произошла внутренняя ошибка при парсинге команды."
 
     def _execute_review(self, issue_num: int) -> str:
+        """Выполняет ревью с проверкой истории."""
         history = self.get_history(issue_num)
         if not history or len(history) <= 1:
-            return "История не найдена."
+            logger.warning(f"Insufficient history for #{issue_num}")
+            return "История обсуждения пуста, нечего анализировать."
         return self.call_groq(history)
 
     def run(self, event_data: Dict[str, Any]) -> None:
         self._validate_logger()
+        
         if not isinstance(self.repo, Repository.Repository):
-            raise TypeError("Repository not initialized.")
+            raise TypeError("Repository not initialized correctly.")
             
-        issue_num = (event_data.get('issue', {}).get('number') or event_data.get('pull_request', {}).get('number'))
-        if not issue_num:
-            logger.error("No valid issue/PR number found.")
-            return
+        issue_num = (event_data.get('issue', {}).get('number') or 
+                     event_data.get('pull_request', {}).get('number'))
+        
+        if issue_num is None:
+            raise ValueError("No valid issue/PR number found in event data.")
 
-        comment = event_data.get('comment')
+        comment = event_data.get('comment', {})
         comment_body = comment.get('body', '') if isinstance(comment, dict) else ''
 
         reply = self.handle_command(comment_body, issue_num) if comment_body.startswith('/') else self._execute_review(issue_num)
 
         try:
             self.repo.get_issue(number=issue_num).create_comment(reply)
-            logger.info(f"Response posted to #{issue_num}")
+            logger.info(f"Response successfully posted to issue #{issue_num}")
         except Exception:
-            logger.exception(f"Failed to post to #{issue_num}")
+            logger.exception(f"Failed to post comment to issue #{issue_num}")
 
 if __name__ == "__main__":
     try:
@@ -107,5 +122,5 @@ if __name__ == "__main__":
         engine = ReviewerEngine(os.environ['GITHUB_TOKEN'], os.environ['GITHUB_REPOSITORY'])
         engine.run(json.loads(raw_data))
     except Exception as e:
-        logger.exception(f"Fatal error: {e}")
+        logger.exception(f"Fatal execution error: {e}")
         exit(1)
