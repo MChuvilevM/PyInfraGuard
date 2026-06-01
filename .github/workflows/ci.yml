@@ -22,7 +22,7 @@ jobs:
           
           PAYLOAD=$(jq -n \
             --arg diff "$DIFF" \
-            --arg prompt "Ты строгий судья и инженер. Проанализируй код. Если найдешь ошибки, напиши краткую критику и предложи исправленный вариант кода в блоке. Если ошибок нет — напиши 'Код чист'." \
+            --arg prompt "Ты строгий судья. Твой анализ должен быть предельно сжатым: 1. Что не так. 2. Как исправить. Никаких вступлений, никакой воды. Только факты." \
             '{model: "llama-3.3-70b-versatile", messages: [{role: "system", content: $prompt}, {role: "user", content: $diff}]}')
 
           RESPONSE=$(curl -s https://api.groq.com/openai/v1/chat/completions \
