@@ -1,28 +1,35 @@
+from unittest.mock import AsyncMock, patch
+import pytest
+from src.core.client import WildberriesApiClient
+from src.limiter.token_bucket import TokenBucketLimiter
+
 @pytest.mark.asyncio
 async def test_fetch_prices_retry_on_429() -> None:
     limiter = TokenBucketLimiter(capacity=10, refill_rate=1)
-    client = WildberriesApiClient(
-        base_url="https://test.api", token="fake", limiter=limiter
-    )
-
+    client = WildberriesApiClient("https://test.api", "fake", limiter)
+    
     mock_session = AsyncMock()
+    
+    # Прямое определение ответа как контекстного менеджера
+    resp = AsyncMock()
+    resp.__aenter__.return_value = resp
+    resp.json.side_effect = [{}, {"data": {"products": []}}]
+    resp.status = 429
+    # Хитрость: меняем статус после первого вызова
+    resp.status = 429
+    
+    # Чтобы статус менялся:
+    resp_429 = AsyncMock()
+    resp_429.status = 429
+    resp_429.__aenter__.return_value = resp_429
+    resp_429.json.return_value = {}
 
-    # Создаем объект-ответ, который гарантированно является контекстным менеджером
-    def create_mock_resp(status: int, json_data: dict[str, Any]) -> AsyncMock:
-        mock_resp = AsyncMock()
-        mock_resp.status = status
-        mock_resp.json = AsyncMock(return_value=json_data)
-        
-        # Определяем поведение контекстного менеджера
-        manager = AsyncMock()
-        manager.__aenter__.return_value = mock_resp
-        return manager
+    resp_200 = AsyncMock()
+    resp_200.status = 200
+    resp_200.__aenter__.return_value = resp_200
+    resp_200.json.return_value = {"data": {"products": []}}
 
-    # Передаем этот менеджер как результат вызова .get()
-    mock_session.get.side_effect = [
-        create_mock_resp(429, {}),
-        create_mock_resp(200, {"data": {"products": []}})
-    ]
+    mock_session.get.side_effect = [resp_429, resp_200]
 
     with patch("asyncio.sleep", new_callable=AsyncMock):
         await client.fetch_prices(mock_session, [123])
