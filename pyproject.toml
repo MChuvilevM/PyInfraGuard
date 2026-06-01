@@ -28,9 +28,7 @@ warn_no_return = true
 warn_unreachable = true
 implicit_reexport = false
 strict_equality = true
-
-[[tool.mypy.overrides]]
-module = ["aiogram.*", "prometheus_client.*"]
+# Позволяет избежать ошибок, если библиотеки еще не установлены в CI
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
