@@ -23,7 +23,8 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"contents\": [{\"parts\": [{\"text\": \"Ты судья. Оцени diff: $DIFF\"}]}]}")
 
-          REVIEW=$(echo $RESPONSE | jq -r '.candidates[0].content.parts[0].text')
+          # Пытаемся извлечь текст, если не вышло — выводим весь ответ для дебага
+          REVIEW=$(echo $RESPONSE | jq -r '.candidates[0].content.parts[0].text // "EMPTY_RESPONSE: " + .')
           
           curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
             -H "Content-Type: application/json" \
