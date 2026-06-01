@@ -25,7 +25,7 @@ jobs:
           PAYLOAD=$(jq -n \
             --arg diff "$DIFF" \
             --arg prompt "Ты строгий судья. Оцени код кратко и по существу: " \
-            '{model: "llama3-70b-8192", messages: [{role: "system", content: $prompt}, {role: "user", content: $diff}]}')
+            '{model: "llama-3.1-70b-versatile", messages: [{role: "system", content: $prompt}, {role: "user", content: $diff}]}')
 
           RESPONSE=$(curl -s https://api.groq.com/openai/v1/chat/completions \
             -H "Authorization: Bearer $GROQ_API_KEY" \
