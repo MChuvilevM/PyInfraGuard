@@ -1,10 +1,13 @@
 import os
 import json
 import logging
-import httpx
 from typing import List, Dict, Any, Optional
+import httpx
+from github import Github, Repository
 
 # Константы
+CMD_SUMMARIZE = "/summarize"
+CMD_EXPLAIN = "/explain"
 DIFF_CHAR_LIMIT = 10000
 SYSTEM_PROMPT = "Ты — строгий AI-инженер. Анализируй код, отвечай кратко, исправляй ошибки прямо."
 
@@ -12,17 +15,13 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
 class ReviewerEngine:
-    """Движок для интерактивного код-ревью в GitHub через LLM."""
-    
     def __init__(self, token: str, repo_name: str) -> None:
-        from github import Github
         self.github = Github(token)
         self.repo = self.github.get_repo(repo_name)
 
     def _validate_logger(self) -> None:
-        """Проверка наличия методов логирования."""
-        if not all(hasattr(logger, method) for method in ['info', 'warning', 'exception']):
-            raise RuntimeError("Logger is not properly configured.")
+        if not all(hasattr(logger, m) for m in ['info', 'warning', 'exception', 'error']):
+            raise RuntimeError("Logger configuration invalid.")
 
     def _handle_request(self, url: str, method: str = "GET", json_data: Optional[Dict] = None) -> Any:
         with httpx.Client(timeout=30.0) as client:
@@ -31,8 +30,7 @@ class ReviewerEngine:
             return response.json()
 
     def get_pr_diff(self, pr_number: Optional[int]) -> str:
-        if not pr_number:
-            return ""
+        if not pr_number: return ""
         try:
             pr = self.repo.get_pull(pr_number)
             response = httpx.get(pr.diff_url)
@@ -52,7 +50,7 @@ class ReviewerEngine:
             return history
         except Exception:
             logger.exception("Failed to fetch history")
-            raise
+            return []
 
     def call_groq(self, messages: List[Dict[str, str]]) -> str:
         try:
@@ -62,55 +60,52 @@ class ReviewerEngine:
             return data['choices'][0]['message']['content']
         except Exception:
             logger.exception("Groq API Error")
-            raise RuntimeError("AI service unavailable.")
+            return "Ошибка связи с AI-сервисом."
 
     def handle_command(self, comment_body: str, issue_num: int) -> str:
-        """Парсинг команд с конкретными исключениями."""
-        if not comment_body:
-            return "Пустой комментарий."
+        if not comment_body: return "Пустой комментарий."
         try:
             parts = comment_body.strip().split()
-            if not parts:
-                return "Некорректная команда."
-            command = parts[0]
-            if command == "/summarize":
-                return "Анализирую изменения... [Тут логика краткого резюме]"
-            elif command == "/explain":
-                return "Разбираю логику кода... [Тут логика объяснения]"
-            return "Неизвестная команда. Доступны: /summarize, /explain."
-        except (ValueError, IndexError) as e:
-            logger.error(f"Command parsing error: {e}")
-            return "Ошибка при парсинге команды."
+            command = parts[0] if parts else ""
+            if command == CMD_SUMMARIZE: return "Анализирую изменения... [Логика суммаризации]"
+            elif command == CMD_EXPLAIN: return "Разбираю логику кода... [Логика объяснения]"
+            return f"Неизвестная команда. Доступны: {CMD_SUMMARIZE}, {CMD_EXPLAIN}."
+        except Exception as e:
+            logger.exception("Error in handle_command")
+            return f"Ошибка обработки: {e}"
 
     def _execute_review(self, issue_num: int) -> str:
-        """Выполняет ревью с проверкой истории."""
         history = self.get_history(issue_num)
-        if not history:
-            logger.warning(f"No history found for issue #{issue_num}")
-            return "История обсуждения не найдена."
+        if not history or len(history) <= 1:
+            return "История не найдена."
         return self.call_groq(history)
 
     def run(self, event_data: Dict[str, Any]) -> None:
         self._validate_logger()
-        # Валидация репозитория
-        if not self.repo:
-            raise RuntimeError("Repository object is not initialized.")
+        if not isinstance(self.repo, Repository.Repository):
+            raise TypeError("Repository not initialized.")
             
-        logger.info(f"Event received. Keys: {list(event_data.keys())}")
-        
-        # ... (логика извлечения issue_num и обработки команд) ...
-        self.repo.get_issue(number=issue_num).create_comment(reply)
-        logger.info(f"Response successfully posted to issue #{issue_num}")
+        issue_num = (event_data.get('issue', {}).get('number') or event_data.get('pull_request', {}).get('number'))
+        if not issue_num:
+            logger.error("No valid issue/PR number found.")
+            return
+
+        comment = event_data.get('comment')
+        comment_body = comment.get('body', '') if isinstance(comment, dict) else ''
+
+        reply = self.handle_command(comment_body, issue_num) if comment_body.startswith('/') else self._execute_review(issue_num)
+
+        try:
+            self.repo.get_issue(number=issue_num).create_comment(reply)
+            logger.info(f"Response posted to #{issue_num}")
+        except Exception:
+            logger.exception(f"Failed to post to #{issue_num}")
 
 if __name__ == "__main__":
     try:
         raw_data = os.environ.get('EVENT_DATA', '{}')
-        data = json.loads(raw_data)
         engine = ReviewerEngine(os.environ['GITHUB_TOKEN'], os.environ['GITHUB_REPOSITORY'])
-        engine.run(data)
-    except json.JSONDecodeError:
-        logger.exception("Invalid JSON in EVENT_DATA")
-        exit(1)
+        engine.run(json.loads(raw_data))
     except Exception as e:
-        logger.exception(f"Critical execution error: {e}")
+        logger.exception(f"Fatal error: {e}")
         exit(1)
