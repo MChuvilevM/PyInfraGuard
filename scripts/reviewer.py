@@ -64,30 +64,29 @@ class ReviewerEngine:
             logger.exception("Groq API Error")
             raise RuntimeError("AI service unavailable.")
 
+    def handle_command(self, comment_body: str, issue_num: int) -> str:
+        """Парсинг команд типа /summarize, /explain."""
+        command = comment_body.strip().split()[0]
+        
+        if command == "/summarize":
+            return "Анализирую изменения... [Тут логика краткого резюме]"
+        elif command == "/explain":
+            return "Разбираю логику кода... [Тут логика объяснения]"
+        
+        return "Неизвестная команда. Доступны: /summarize, /explain."
+
     def run(self, event_data: Dict[str, Any]) -> None:
-        self._validate_logger()
-        logger.info(f"Event received. Keys: {list(event_data.keys())}")
-        
-        if event_data.get('sender', {}).get('login') == 'github-actions[bot]':
-            logger.info("Ignoring own activity.")
-            return
+        # ... (предыдущий код проверки) ...
 
-        issue_num = (event_data.get('issue', {}).get('number') or 
-                     event_data.get('pull_request', {}).get('number'))
-        
-        if not issue_num:
-            raise ValueError("No issue/PR number found in event data.")
+        comment_body = event_data.get('comment', {}).get('body', '')
+        if comment_body.startswith('/'):
+            reply = self.handle_command(comment_body, issue_num)
+        else:
+            # Стандартное ревью
+            history = self.get_history(issue_num)
+            # ... (логика diff и вызова Groq) ...
+            reply = self.call_groq(history)
 
-        logger.info(f"Processing issue #{issue_num}")
-        
-        history = self.get_history(issue_num)
-        
-        if 'pull_request' in event_data or event_data.get('issue', {}).get('pull_request'):
-            diff = self.get_pr_diff(issue_num)
-            if diff:
-                history.append({"role": "system", "content": f"Current PR Diff:\n{diff}"})
-
-        reply = self.call_groq(history)
         self.repo.get_issue(number=issue_num).create_comment(reply)
         logger.info(f"Response successfully posted to issue #{issue_num}")
 
