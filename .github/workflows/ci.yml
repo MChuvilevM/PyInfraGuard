@@ -32,25 +32,27 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           sudo apt-get install -y jq
-          DIFF=$(git diff HEAD^ HEAD)
-          if [ -z "$DIFF" ]; then exit 0; fi
+          # Сохраняем diff во временный файл
+          git diff HEAD^ HEAD > diff.txt
+          
+          # Формируем JSON с помощью jq, он сам позаботится об экранировании
+          jq -n --rawfile diff diff.txt \
+            '{contents: [{parts: [{text: ("Ты строгий судья-разработчик. Проанализируй этот diff: " + $diff)}]}]}' \
+            > request.json
 
-          # Делаем запрос и сохраняем ответ в файл
-          RESPONSE=$(curl -s -w "%{http_code}" "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GEMINI_API_KEY" \
+          # Отправляем файл
+          RESPONSE_CODE=$(curl -s -o response.json -w "%{http_code}" \
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GEMINI_API_KEY" \
             -H "Content-Type: application/json" \
-            -d "{\"contents\": [{\"parts\": [{\"text\": \"Ты строгий судья-разработчик. Проанализируй этот diff: ${DIFF//\"/\\\"}\"}]}]}" \
-            -o response.json)
-          
-          # Логируем ответ для отладки
-          echo "HTTP Status: $RESPONSE"
-          cat response.json
+            -d @request.json)
 
-          # Извлекаем текст
-          REVIEW=$(jq -r '.candidates[0].content.parts[0].text // empty' response.json)
-          
-          if [ -z "$REVIEW" ]; then
-            REVIEW="Ошибка: API не вернул текст. Проверь логи Actions (HTTP Status: $RESPONSE)."
+          if [ "$RESPONSE_CODE" != "200" ]; then
+            echo "HTTP Error: $RESPONSE_CODE"
+            cat response.json
+            exit 1
           fi
+
+          REVIEW=$(jq -r '.candidates[0].content.parts[0].text' response.json)
           
           curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
             -H "Content-Type: application/json" \
