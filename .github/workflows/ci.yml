@@ -12,20 +12,27 @@ jobs:
           fetch-depth: 0
 
       - name: AI Commit Review
+        if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
+          set -x
           sudo apt-get install -y jq
           DIFF=$(git diff HEAD^ HEAD)
           
-          RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GEMINI_API_KEY" \
+          # Отправляем запрос и сохраняем вывод в файл
+          curl -s -o response.json "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GEMINI_API_KEY" \
             -H "Content-Type: application/json" \
-            -d "{\"contents\": [{\"parts\": [{\"text\": \"Ты судья. Оцени diff: $DIFF\"}]}]}")
+            -d "{\"contents\": [{\"parts\": [{\"text\": \"Ты судья. Оцени diff: $DIFF\"}]}]}"
 
-    
-          REVIEW=$(echo $RESPONSE | jq -r 'if .candidates then .candidates[0].content.parts[0].text else . | tostring end')
+          # Выводим содержимое ответа в лог для отладки
+          cat response.json
+
+          # Извлекаем текст
+          REVIEW=$(jq -r 'if .candidates then .candidates[0].content.parts[0].text else . | tostring end' response.json)
           
+          # Отправляем коммент
           curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"body\": \"$REVIEW\"}" \
