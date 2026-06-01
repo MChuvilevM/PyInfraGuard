@@ -1,13 +1,16 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 from src.core.client import WildberriesApiClient
 from src.limiter.token_bucket import TokenBucketLimiter
+
 
 @pytest.mark.asyncio
 async def test_fetch_prices_retry_on_429() -> None:
     limiter = TokenBucketLimiter(capacity=10, refill_rate=1)
     client = WildberriesApiClient("https://test.api", "fake", limiter)
-    
+
     mock_session = MagicMock()
 
     # Создаем функцию-помощник для правильного мока контекстного менеджера
