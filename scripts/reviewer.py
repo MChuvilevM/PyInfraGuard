@@ -3,7 +3,6 @@ import json
 import logging
 import httpx
 from typing import List, Dict, Any, Optional
-from github import Github, GithubException, Repository
 
 # Константы
 DIFF_CHAR_LIMIT = 10000
@@ -16,18 +15,22 @@ class ReviewerEngine:
     """Движок для интерактивного код-ревью в GitHub через LLM."""
     
     def __init__(self, token: str, repo_name: str) -> None:
+        from github import Github
         self.github = Github(token)
         self.repo = self.github.get_repo(repo_name)
 
+    def _validate_logger(self) -> None:
+        """Проверка наличия методов логирования."""
+        if not all(hasattr(logger, method) for method in ['info', 'warning', 'exception']):
+            raise RuntimeError("Logger is not properly configured.")
+
     def _handle_request(self, url: str, method: str = "GET", json_data: Optional[Dict] = None) -> Any:
-        """Вспомогательный метод для унификации сетевых запросов."""
         with httpx.Client(timeout=30.0) as client:
             response = client.request(method, url, json=json_data, headers={"Authorization": f"Bearer {os.environ.get('GROQ_API_KEY')}"})
             response.raise_for_status()
             return response.json()
 
     def get_pr_diff(self, pr_number: Optional[int]) -> str:
-        """Извлекает diff текущего PR."""
         if not pr_number:
             return ""
         try:
@@ -35,12 +38,11 @@ class ReviewerEngine:
             response = httpx.get(pr.diff_url)
             response.raise_for_status()
             return response.text[:DIFF_CHAR_LIMIT]
-        except Exception as e:
-            logger.error(f"Failed to fetch PR diff: {e}")
+        except Exception:
+            logger.exception(f"Failed to fetch PR diff for #{pr_number}")
             return ""
 
     def get_history(self, issue_number: int) -> List[Dict[str, str]]:
-        """Собирает историю комментариев для контекста."""
         try:
             comments = self.repo.get_issue(number=issue_number).get_comments()
             history = [{"role": "system", "content": SYSTEM_PROMPT}]
@@ -48,27 +50,22 @@ class ReviewerEngine:
                 role = "assistant" if c.user.type == "Bot" else "user"
                 history.append({"role": role, "content": c.body})
             return history
-        except GithubException as e:
-            logger.error(f"Failed to fetch history: {e}")
+        except Exception:
+            logger.exception("Failed to fetch history")
             raise
 
     def call_groq(self, messages: List[Dict[str, str]]) -> str:
-        """Взаимодействие с Groq API."""
         try:
             data = self._handle_request("https://api.groq.com/openai/v1/chat/completions", "POST", {
                 "model": "llama-3.3-70b-versatile", "messages": messages
             })
             return data['choices'][0]['message']['content']
-        except Exception as e:
-            logger.error(f"Groq API Error: {e}")
+        except Exception:
+            logger.exception("Groq API Error")
             raise RuntimeError("AI service unavailable.")
 
     def run(self, event_data: Dict[str, Any]) -> None:
-        """Обрабатывает событие GitHub и публикует ответ."""
-        if not hasattr(logger, 'info') or not hasattr(logger, 'warning'):
-            print(f"Logger error: methods info/warning not found. Event: {event_data.keys()}")
-            return
-
+        self._validate_logger()
         logger.info(f"Event received. Keys: {list(event_data.keys())}")
         
         if event_data.get('sender', {}).get('login') == 'github-actions[bot]':
@@ -79,8 +76,7 @@ class ReviewerEngine:
                      event_data.get('pull_request', {}).get('number'))
         
         if not issue_num:
-            logger.info("No issue/PR number found. Aborting.")
-            return
+            raise ValueError("No issue/PR number found in event data.")
 
         logger.info(f"Processing issue #{issue_num}")
         
@@ -93,7 +89,7 @@ class ReviewerEngine:
 
         reply = self.call_groq(history)
         self.repo.get_issue(number=issue_num).create_comment(reply)
-        logger.info("Response posted.")
+        logger.info(f"Response successfully posted to issue #{issue_num}")
 
 if __name__ == "__main__":
     try:
@@ -101,6 +97,9 @@ if __name__ == "__main__":
         data = json.loads(raw_data)
         engine = ReviewerEngine(os.environ['GITHUB_TOKEN'], os.environ['GITHUB_REPOSITORY'])
         engine.run(data)
-    except json.JSONDecodeError as e:
-        logger.critical(f"Invalid JSON in EVENT_DATA: {e}")
+    except json.JSONDecodeError:
+        logger.exception("Invalid JSON in EVENT_DATA")
+        exit(1)
+    except Exception as e:
+        logger.exception(f"Critical execution error: {e}")
         exit(1)
