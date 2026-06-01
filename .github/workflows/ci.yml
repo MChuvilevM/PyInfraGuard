@@ -18,13 +18,11 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
           sudo apt-get install -y jq
-          # Экранируем diff и сохраняем в переменную
           DIFF=$(git diff HEAD^ HEAD | jq -sR .)
           
-          # Формируем JSON через jq, чтобы избежать ошибок с символами
           PAYLOAD=$(jq -n \
             --arg diff "$DIFF" \
-            --arg prompt "Ты строгий судья и инженер. Проанализируй код. Если найдешь ошибки, напиши краткую критику и предложи исправленный вариант кода в блоке ```. Если ошибок нет — напиши 'Код чист'."
+            --arg prompt "Ты строгий судья и инженер. Проанализируй код. Если найдешь ошибки, напиши краткую критику и предложи исправленный вариант кода в блоке. Если ошибок нет — напиши 'Код чист'." \
             '{model: "llama-3.3-70b-versatile", messages: [{role: "system", content: $prompt}, {role: "user", content: $diff}]}')
 
           RESPONSE=$(curl -s https://api.groq.com/openai/v1/chat/completions \
@@ -34,7 +32,6 @@ jobs:
 
           REVIEW=$(echo $RESPONSE | jq -r '.choices[0].message.content // ("ERROR: " + (.error.message // "unknown"))')
           
-          # Экранируем сообщение для GitHub API
           BODY=$(jq -n --arg msg "$REVIEW" '{body: $msg}')
           
           curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
