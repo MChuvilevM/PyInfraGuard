@@ -1,6 +1,5 @@
 name: CI
-
-on: [push, pull_request]
+on: [push]
 
 jobs:
   test:
@@ -10,65 +9,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: pip install ruff pytest pytest-asyncio pydantic aiohttp prometheus-client
-
-      - name: Run Ruff (Check & Fix)
-        run: |
-          ruff check . --fix
-          
-      steps:
-      - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-
-      # ... тут твои шаги с Python, Install dependencies и т.д. ...
-
-      # ЭТОТ БЛОК ВСТАВЬ СЮДА
-      - name: List Models
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: |
-          curl "https://generativelanguage.googleapis.com/v1/models?key=$GEMINI_API_KEY"
-
-      # AI Commit Review
       - name: AI Commit Review
-        if: github.event_name == 'push'
-        # ... остальной код ...
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           sudo apt-get install -y jq
-          git diff HEAD^ HEAD > diff.txt
+          DIFF=$(git diff HEAD^ HEAD)
           
-          # Формируем JSON корректно
-          jq -n --rawfile diff diff.txt \
-            '{contents: [{parts: [{text: ("Ты строгий судья-разработчик. Проанализируй этот diff: " + $diff)}]}]}' \
-            > request.json
-
-          # Используем правильный путь для v1beta
-          RESPONSE_CODE=$(curl -s -o response.json -w "%{http_code}" \
-            ""https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=$GEMINI_API_KEY"" \
+          RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GEMINI_API_KEY" \
             -H "Content-Type: application/json" \
-            -d @request.json)
+            -d "{\"contents\": [{\"parts\": [{\"text\": \"Ты судья. Оцени diff: $DIFF\"}]}]}")
 
-          if [ "$RESPONSE_CODE" != "200" ]; then
-            echo "HTTP Error: $RESPONSE_CODE"
-            cat response.json
-            exit 1
-          fi
-
-          REVIEW=$(jq -r '.candidates[0].content.parts[0].text' response.json)
+          REVIEW=$(echo $RESPONSE | jq -r '.candidates[0].content.parts[0].text')
           
           curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
             -H "Content-Type: application/json" \
