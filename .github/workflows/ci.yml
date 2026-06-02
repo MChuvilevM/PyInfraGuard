@@ -12,29 +12,28 @@ jobs:
           fetch-depth: 0
 
       - name: AI Commit Review
-        if: github.event_name == 'push'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-        run: |
-          sudo apt-get install -y jq
-          DIFF=$(git diff HEAD^ HEAD | jq -sR .)
-          
-          PAYLOAD=$(jq -n \
-            --arg diff "$DIFF" \
-            --arg sys "Ты — инженер. Анализируй код. Если есть ошибки — пиши кратко, что не так и как исправить. Если нет — Код чист." \
-            '{model: "llama-3.3-70b-versatile", messages: [{role: "system", content: $sys}, {role: "user", content: $diff}]}')
+    if: github.event_name == 'push'
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      API_GEMINI: ${{ secrets.API_GEMINI }}
+    run: |
+      sudo apt-get install -y jq
+      DIFF=$(git diff HEAD^ HEAD | jq -sR .)
 
-          RESPONSE=$(curl -s https://api.groq.com/openai/v1/chat/completions \
-            -H "Authorization: Bearer $GROQ_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d "$PAYLOAD")
+      PAYLOAD=$(jq -n \
+        --arg diff "$DIFF" \
+        --arg sys "Ты — инженер. Анализируй код. Если есть ошибки — пиши кратко, что не так и как исправить. Если нет — Код чист." \
+        '{contents: [{role: "user", parts: [{text: ($sys + "\n\n" + $diff)}]}]}')
 
-          REVIEW=$(echo $RESPONSE | jq -r '.choices[0].message.content // ("ERROR: " + (.error.message // "unknown"))')
-          
-          BODY=$(jq -n --arg msg "$REVIEW" '{body: $msg}')
-          
-          curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "$BODY" \
-            "https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments"
+      RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$API_GEMINI" \
+        -H "Content-Type: application/json" \
+        -d "$PAYLOAD")
+
+      REVIEW=$(echo $RESPONSE | jq -r '.candidates[0].content.parts[0].text // ("ERROR: " + (.error.message // "unknown"))')
+
+      BODY=$(jq -n --arg msg "$REVIEW" '{body: $msg}')
+
+      curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "$BODY" \
+        "https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments"
