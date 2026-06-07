@@ -20,4 +20,6 @@ jobs:
           uvx ruff check --fix .
           uvx ruff format .
       - name: Run tests
-        run: uv run pytest
+      run: |
+       uv sync
+       uv run pytest
