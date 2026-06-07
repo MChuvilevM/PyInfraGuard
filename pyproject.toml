@@ -1,6 +1,7 @@
 [project]
 name = "PyInfraGuard"
 version = "0.1.0"
+requires-python = ">=3.12"
 dependencies = [
     "aiohttp",
     "pydantic",
@@ -11,6 +12,7 @@ dependencies = [
 dev-dependencies = [
     "pytest>=8.0.0",
     "pytest-asyncio",
+    "ruff",
 ]
 [tool.ruff]
 line-length = 120
