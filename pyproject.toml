@@ -1,7 +1,9 @@
 [project]
 name = "PyInfraGuard"
 version = "0.1.0"
-dependencies = []
+dependencies = [
+    "aiohttp",
+]
 
 [tool.uv]
 dev-dependencies = [
