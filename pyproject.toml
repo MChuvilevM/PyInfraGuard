@@ -3,11 +3,13 @@ name = "PyInfraGuard"
 version = "0.1.0"
 dependencies = [
     "aiohttp",
+    "pydantic",
 ]
 
 [tool.uv]
 dev-dependencies = [
     "pytest>=8.0.0",
+    "pytest-asyncio",
 ]
 [tool.ruff]
 line-length = 120
