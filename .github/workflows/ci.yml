@@ -1,5 +1,5 @@
 name: CI
-on: [push]
+on: [push, pull_request]
 
 jobs:
   test:
@@ -10,3 +10,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+      - name: Install dependencies
+        run: uv sync --frozen
+      - name: Lint and Format
+        run: |
+          uvx ruff check .
+          uvx ruff format --check .
+      - name: Run tests
+        run: uv run pytest
